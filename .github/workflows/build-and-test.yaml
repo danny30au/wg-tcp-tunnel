@@ -63,3 +63,35 @@ jobs:
         ${{ matrix.features }}
     - name: Build Project
       run: cmake --build build --config ${{ matrix.build-type }}
+
+    - name: Compute Artifact Suffix
+      id: suffix
+      shell: bash
+      run: |
+        suffix=$(echo "${{ matrix.features }}" \
+          | sed -e 's/-D//g' -e 's/=/-/g' -e 's/ \+/_/g' -e 's/[^A-Za-z0-9._-]//g')
+        echo "value=${suffix}" >> "$GITHUB_OUTPUT"
+
+    - name: Stage Artifacts (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        mkdir -p artifact
+        cp build/wg-tcp-tunnel artifact/
+
+    - name: Stage Artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        mkdir -p artifact
+        cp build/${{ matrix.build-type }}/wg-tcp-tunnel.exe artifact/
+        if [ -f "build/${{ matrix.build-type }}/wg-tcp-tunnel-wintray.exe" ]; then
+          cp build/${{ matrix.build-type }}/wg-tcp-tunnel-wintray.exe artifact/
+        fi
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wg-tcp-tunnel-${{ matrix.os }}-${{ matrix.build-type }}-${{ steps.suffix.outputs.value }}
+        path: artifact/
+        if-no-files-found: error
+        retention-days: 7
